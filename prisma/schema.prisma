@@ -1,0 +1,116 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum EventType {
+  ONE_OFF
+  SUBSCRIPTION
+}
+
+enum FailureReason {
+  BANK_SERVER_ERROR
+  INSUFFICIENT_FUNDS
+  OTP_FAILED
+  CARD_EXPIRED
+  INVALID_CARD_DETAILS
+  DAILY_LIMIT_EXCEEDED
+  RISK_DECLINED
+}
+
+enum EventStatus {
+  OPEN
+  RECOVERED
+  ESCALATED
+}
+
+enum BatchStrategy {
+  AGENT
+  NAIVE
+}
+
+enum BatchStatus {
+  PENDING
+  RUNNING
+  COMPLETE
+}
+
+enum AttemptAction {
+  RETRY
+  SEND_MESSAGE
+  ESCALATE
+}
+
+enum AttemptOutcome {
+  SUCCESS
+  FAILURE
+}
+
+enum AuditStep {
+  DETECTED
+  DIAGNOSED
+  DECIDED
+  ACTED
+  TRACKED
+}
+
+model Customer {
+  id        String         @id @default(cuid())
+  name      String
+  contact   String
+  createdAt DateTime       @default(now())
+  events    PaymentEvent[]
+}
+
+model Batch {
+  id         String         @id @default(cuid())
+  seed       Int
+  eventCount Int
+  strategy   BatchStrategy
+  status     BatchStatus    @default(PENDING)
+  createdAt  DateTime       @default(now())
+  events     PaymentEvent[]
+}
+
+model PaymentEvent {
+  id                     String          @id @default(cuid())
+  batchId                String
+  batch                  Batch           @relation(fields: [batchId], references: [id])
+  customerId             String
+  customer               Customer        @relation(fields: [customerId], references: [id])
+  type                   EventType
+  amountPaise            Int
+  gatewayErrorCode       String
+  gatewayErrorMessage    String
+  failureReason          FailureReason?
+  groundTruthRecoverable Float
+  status                 EventStatus     @default(OPEN)
+  createdAt              DateTime        @default(now())
+  attempts               RetryAttempt[]
+  auditEntries           AuditLogEntry[]
+}
+
+model RetryAttempt {
+  id            String         @id @default(cuid())
+  eventId       String
+  event         PaymentEvent   @relation(fields: [eventId], references: [id])
+  attemptNumber Int
+  action        AttemptAction
+  messageSent   Boolean        @default(false)
+  scheduledFor  DateTime
+  executedAt    DateTime
+  outcome       AttemptOutcome
+}
+
+model AuditLogEntry {
+  id        String       @id @default(cuid())
+  eventId   String
+  event     PaymentEvent @relation(fields: [eventId], references: [id])
+  step      AuditStep
+  detail    Json
+  createdAt DateTime
+}
