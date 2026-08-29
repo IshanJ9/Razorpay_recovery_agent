@@ -1,0 +1,44 @@
+{
+  "name": "razorpay_buildathon",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "prisma:migrate": "prisma migrate dev",
+    "demo": "tsx scripts/demo.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IshanJ9/Razorpay_recovery_agent.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/IshanJ9/Razorpay_recovery_agent/issues"
+  },
+  "homepage": "https://github.com/IshanJ9/Razorpay_recovery_agent#readme",
+  "dependencies": {
+    "@prisma/client": "^7.10.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.4.0",
+    "@types/supertest": "^7.2.1",
+    "prisma": "^8.0.0-rc.12",
+    "supertest": "^7.2.2",
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}
