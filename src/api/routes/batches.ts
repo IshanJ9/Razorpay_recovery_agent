@@ -37,3 +37,8 @@ batchesRouter.get('/:id/report', async (req, res) => {
   const report = await computeReport(req.params.id);
   res.json(report);
 });
+
+batchesRouter.get('/:id/events', async (req, res) => {
+  const events = await prisma.paymentEvent.findMany({ where: { batchId: req.params.id } });
+  res.json({ events });
+});
