@@ -22,6 +22,11 @@ batchesRouter.post('/', async (req, res) => {
 });
 
 batchesRouter.post('/:id/run', async (req, res) => {
+  const existing = await prisma.batch.findUnique({ where: { id: req.params.id } });
+  if (!existing) return res.status(404).json({ error: 'not found' });
+  if (existing.status !== 'PENDING') {
+    return res.status(409).json({ error: 'batch is not pending' });
+  }
   await runBatch(req.params.id);
   const batch = await prisma.batch.findUniqueOrThrow({ where: { id: req.params.id } });
   res.json({ batch });
@@ -39,6 +44,9 @@ batchesRouter.get('/:id/report', async (req, res) => {
 });
 
 batchesRouter.get('/:id/events', async (req, res) => {
-  const events = await prisma.paymentEvent.findMany({ where: { batchId: req.params.id } });
+  const events = await prisma.paymentEvent.findMany({
+    where: { batchId: req.params.id },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+  });
   res.json({ events });
 });

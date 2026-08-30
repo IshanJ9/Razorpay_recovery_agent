@@ -37,6 +37,7 @@ enum BatchStatus {
   PENDING
   RUNNING
   COMPLETE
+  FAILED
 }
 
 enum AttemptAction {

@@ -18,16 +18,51 @@ function addAuditEntry(eventId: string, step: AuditStep, detail: unknown, simula
   });
 }
 
+// A transient hiccup calling a real LLM API (rate limit, timeout, network blip) should
+// degrade this one event's message/explanation gracefully rather than throwing and
+// killing the entire batch run (which would trip the FAILED-status path above for what
+// is often a recoverable, one-off failure).
+async function safeDraftMessage(...args: Parameters<typeof llm.draftMessage>): Promise<string> {
+  try {
+    return await llm.draftMessage(...args);
+  } catch (err) {
+    console.error('draftMessage failed, falling back to template text:', err);
+    return '[message drafting unavailable]';
+  }
+}
+
+async function safeExplainDecision(...args: Parameters<typeof llm.explainDecision>): Promise<string> {
+  try {
+    return await llm.explainDecision(...args);
+  } catch (err) {
+    console.error('explainDecision failed, falling back to template text:', err);
+    return '[explanation unavailable]';
+  }
+}
+
 export async function runBatch(batchId: string): Promise<void> {
   const batch = await prisma.batch.findUniqueOrThrow({ where: { id: batchId } });
   await prisma.batch.update({ where: { id: batchId }, data: { status: 'RUNNING' } });
 
+  try {
+    await runBatchInner(batch, batchId);
+  } catch (err) {
+    await prisma.batch.update({ where: { id: batchId }, data: { status: 'FAILED' } });
+    throw err;
+  }
+}
+
+async function runBatchInner(batch: { seed: number; strategy: 'AGENT' | 'NAIVE' }, batchId: string): Promise<void> {
   // Order deterministically: without an explicit orderBy, Postgres does not guarantee
   // row order, which would silently break the seeded RNG's pairing between the AGENT
   // and NAIVE batches of a 'BOTH' run (both share `batch.seed`, so reproducibility and
   // the fairness of the naive-vs-agent comparison depend on processing events in the
-  // same (creation) order every time).
-  const events = await prisma.paymentEvent.findMany({ where: { batchId }, orderBy: { createdAt: 'asc' } });
+  // same (creation) order every time). A compound sort with `id` as tiebreaker guards
+  // against same-millisecond `createdAt` collisions from the sequential batch-insert loop.
+  const events = await prisma.paymentEvent.findMany({
+    where: { batchId },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+  });
   const rng = mulberry32(batch.seed + 1);
 
   for (const event of events) {
@@ -69,7 +104,7 @@ export async function runBatch(batchId: string): Promise<void> {
       await addAuditEntry(event.id, 'DECIDED', { attemptNumber, action: final.action, tone: final.tone }, stampAudit(simulatedAt));
 
       if (final.action === 'ESCALATE') {
-        const explanation = await llm.explainDecision({ reason, action: 'ESCALATE', attemptNumber });
+        const explanation = await safeExplainDecision({ reason, action: 'ESCALATE', attemptNumber });
         await addAuditEntry(event.id, 'ACTED', { action: 'ESCALATE', explanation }, stampAudit(simulatedAt));
         await addAuditEntry(event.id, 'TRACKED', { outcome: 'ESCALATED' }, stampAudit(simulatedAt));
         finalStatus = 'ESCALATED';
@@ -78,7 +113,7 @@ export async function runBatch(batchId: string): Promise<void> {
 
       let messageText: string | null = null;
       if (final.messageSent) {
-        messageText = await llm.draftMessage({
+        messageText = await safeDraftMessage({
           reason,
           tone: final.tone!,
           amountRupees: event.amountPaise / 100,
@@ -87,7 +122,7 @@ export async function runBatch(batchId: string): Promise<void> {
         totalContacts += 1;
         lastContactDay = currentDay;
       }
-      const explanation = await llm.explainDecision({ reason, action: final.action, attemptNumber });
+      const explanation = await safeExplainDecision({ reason, action: final.action, attemptNumber });
       await addAuditEntry(event.id, 'ACTED', { action: final.action, messageText, explanation }, stampAudit(simulatedAt));
 
       const actionMatchesIdeal = final.action === trueIdeal.action;
