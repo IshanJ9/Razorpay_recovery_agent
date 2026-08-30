@@ -1,0 +1,6 @@
+body { font-family: system-ui, sans-serif; margin: 2rem; color: #1a1a1a; }
+#run-control { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+#summary-cards { display: flex; gap: 1rem; margin: 1rem 0; }
+.card { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; min-width: 160px; }
+.card h3 { margin: 0 0 0.5rem; font-size: 0.85rem; color: #666; text-transform: uppercase; }
+.card p { margin: 0; font-size: 1.2rem; font-weight: 600; }

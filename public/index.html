@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Revenue Recovery Agent</title>
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+  <h1>Revenue Recovery Agent</h1>
+
+  <section id="run-control">
+    <label>Count <input id="count-input" type="number" value="300" min="1" /></label>
+    <label>Seed <input id="seed-input" type="number" value="42" /></label>
+    <button id="run-both-btn">Run Agent vs Naive</button>
+    <span id="run-status"></span>
+  </section>
+
+  <section id="summary-cards" hidden>
+    <div class="card"><h3>At Risk</h3><p id="at-risk-value">-</p></div>
+    <div class="card"><h3>Recovered (Agent)</h3><p id="agent-recovered-value">-</p></div>
+    <div class="card"><h3>Recovered (Naive)</h3><p id="naive-recovered-value">-</p></div>
+    <div class="card"><h3>Recovery Rate Delta</h3><p id="delta-value">-</p></div>
+  </section>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
