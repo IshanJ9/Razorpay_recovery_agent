@@ -8,6 +8,12 @@ async function main() {
   const count = Number(process.argv[2] ?? 300);
   const seed = Number(process.argv[3] ?? 42);
 
+  if (!Number.isInteger(count) || count <= 0 || !Number.isInteger(seed)) {
+    console.error('Usage: npm run demo -- <count> <seed>');
+    console.error('  <count> must be a positive integer, <seed> must be an integer.');
+    process.exit(1);
+  }
+
   const [agentBatch, naiveBatch] = await createBatch(count, seed, 'BOTH');
   await runBatch(agentBatch.id);
   await runBatch(naiveBatch.id);
@@ -24,6 +30,12 @@ async function main() {
   console.log(`Agent escalated to human review: ${agentReport.escalatedCount} of ${count} events`);
   console.log('\nAgent recovery rate by failure reason:');
   for (const row of agentReport.byFailureReason) {
+    const rate = row.count === 0 ? 0 : (row.recoveredCount / row.count) * 100;
+    console.log(`  ${row.key}: ${rate.toFixed(1)}% (${row.recoveredCount}/${row.count})`);
+  }
+
+  console.log('\nAgent recovery rate by event type:');
+  for (const row of agentReport.byType) {
     const rate = row.count === 0 ? 0 : (row.recoveredCount / row.count) * 100;
     console.log(`  ${row.key}: ${rate.toFixed(1)}% (${row.recoveredCount}/${row.count})`);
   }

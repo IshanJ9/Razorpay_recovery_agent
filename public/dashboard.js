@@ -3,6 +3,11 @@ const runStatus = document.getElementById('run-status');
 let agentBatchId = null;
 let naiveBatchId = null;
 
+function failRun(message) {
+  runStatus.textContent = message;
+  runBtn.disabled = false;
+}
+
 runBtn.addEventListener('click', async () => {
   const count = Number(document.getElementById('count-input').value);
   const seed = Number(document.getElementById('seed-input').value);
@@ -14,18 +19,34 @@ runBtn.addEventListener('click', async () => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ count, seed, strategy: 'BOTH' }),
   });
+  if (!createRes.ok) {
+    return failRun('Error: batch creation failed (see server logs)');
+  }
   const { batches } = await createRes.json();
   agentBatchId = batches.find((b) => b.strategy === 'AGENT').id;
   naiveBatchId = batches.find((b) => b.strategy === 'NAIVE').id;
 
   runStatus.textContent = 'Running agent strategy...';
-  await fetch(`/api/batches/${agentBatchId}/run`, { method: 'POST' });
+  const agentRunRes = await fetch(`/api/batches/${agentBatchId}/run`, { method: 'POST' });
+  if (!agentRunRes.ok) {
+    return failRun('Error: batch run failed (see server logs)');
+  }
+
   runStatus.textContent = 'Running naive baseline...';
-  await fetch(`/api/batches/${naiveBatchId}/run`, { method: 'POST' });
+  const naiveRunRes = await fetch(`/api/batches/${naiveBatchId}/run`, { method: 'POST' });
+  if (!naiveRunRes.ok) {
+    return failRun('Error: batch run failed (see server logs)');
+  }
 
   runStatus.textContent = 'Loading report...';
-  await loadReport();
-  await loadEvents();
+  const reportOk = await loadReport();
+  if (!reportOk) {
+    return failRun('Error: loading report failed (see server logs)');
+  }
+  const eventsOk = await loadEvents();
+  if (!eventsOk) {
+    return failRun('Error: loading events failed (see server logs)');
+  }
   runBtn.disabled = false;
   runStatus.textContent = 'Done';
 });
@@ -39,6 +60,9 @@ async function loadReport() {
     fetch(`/api/batches/${agentBatchId}/report`),
     fetch(`/api/batches/${naiveBatchId}/report`),
   ]);
+  if (!agentReportRes.ok || !naiveReportRes.ok) {
+    return false;
+  }
   const agentReport = await agentReportRes.json();
   const naiveReport = await naiveReportRes.json();
 
@@ -49,14 +73,17 @@ async function loadReport() {
   document.getElementById('naive-recovered-value').textContent =
     `${formatRupees(naiveReport.recoveredPaise)} (${(naiveReport.recoveryRate * 100).toFixed(1)}%)`;
   const delta = (agentReport.recoveryRate - naiveReport.recoveryRate) * 100;
-  document.getElementById('delta-value').textContent = `+${delta.toFixed(1)} pts`;
+  document.getElementById('delta-value').textContent = `${delta >= 0 ? '+' : ''}${delta.toFixed(1)} pts`;
 
-  renderBreakdownChart(agentReport.byFailureReason);
+  renderBreakdownChart(agentReport.byFailureReason, 'breakdown-chart');
+  document.getElementById('breakdown-section').hidden = false;
+  renderBreakdownChart(agentReport.byType, 'type-breakdown-chart');
+  document.getElementById('type-breakdown-section').hidden = false;
+  return true;
 }
 
-function renderBreakdownChart(rows) {
-  const svg = document.getElementById('breakdown-chart');
-  document.getElementById('breakdown-section').hidden = false;
+function renderBreakdownChart(rows, svgId) {
+  const svg = document.getElementById(svgId);
   svg.innerHTML = '';
   const barWidth = 60;
   rows.forEach((row, i) => {
@@ -82,6 +109,9 @@ function renderBreakdownChart(rows) {
 
 async function loadEvents() {
   const res = await fetch(`/api/batches/${agentBatchId}/events`);
+  if (!res.ok) {
+    return false;
+  }
   const { events } = await res.json();
   document.getElementById('events-section').hidden = false;
   document.getElementById('escalation-section').hidden = false;
@@ -112,10 +142,15 @@ async function loadEvents() {
   document.querySelectorAll('.view-audit-btn').forEach((btn) => {
     btn.addEventListener('click', () => showAuditTrail(btn.dataset.eventId));
   });
+  return true;
 }
 
 async function showAuditTrail(eventId) {
   const res = await fetch(`/api/events/${eventId}/audit`);
+  if (!res.ok) {
+    runStatus.textContent = 'Error: loading audit trail failed (see server logs)';
+    return;
+  }
   const { entries } = await res.json();
   const list = document.getElementById('audit-list');
   list.innerHTML = '';
