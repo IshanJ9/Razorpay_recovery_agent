@@ -25,6 +25,7 @@ runBtn.addEventListener('click', async () => {
 
   runStatus.textContent = 'Loading report...';
   await loadReport();
+  await loadEvents();
   runBtn.disabled = false;
   runStatus.textContent = 'Done';
 });
@@ -49,4 +50,83 @@ async function loadReport() {
     `${formatRupees(naiveReport.recoveredPaise)} (${(naiveReport.recoveryRate * 100).toFixed(1)}%)`;
   const delta = (agentReport.recoveryRate - naiveReport.recoveryRate) * 100;
   document.getElementById('delta-value').textContent = `+${delta.toFixed(1)} pts`;
+
+  renderBreakdownChart(agentReport.byFailureReason);
 }
+
+function renderBreakdownChart(rows) {
+  const svg = document.getElementById('breakdown-chart');
+  document.getElementById('breakdown-section').hidden = false;
+  svg.innerHTML = '';
+  const barWidth = 60;
+  rows.forEach((row, i) => {
+    const rate = row.count === 0 ? 0 : row.recoveredCount / row.count;
+    const barHeight = rate * 180;
+    const x = i * (barWidth + 20) + 20;
+    const y = 200 - barHeight;
+
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', x);
+    rect.setAttribute('y', y);
+    rect.setAttribute('width', barWidth);
+    rect.setAttribute('height', barHeight);
+    svg.appendChild(rect);
+
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    label.setAttribute('x', x);
+    label.setAttribute('y', 220);
+    label.textContent = row.key;
+    svg.appendChild(label);
+  });
+}
+
+async function loadEvents() {
+  const res = await fetch(`/api/batches/${agentBatchId}/events`);
+  const { events } = await res.json();
+  document.getElementById('events-section').hidden = false;
+  document.getElementById('escalation-section').hidden = false;
+
+  const body = document.getElementById('events-body');
+  body.innerHTML = '';
+  const escalationList = document.getElementById('escalation-list');
+  escalationList.innerHTML = '';
+
+  for (const event of events) {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${formatRupees(event.amountPaise)}</td>
+      <td>${event.type}</td>
+      <td>${event.failureReason ?? '-'}</td>
+      <td>${event.status}</td>
+      <td><button data-event-id="${event.id}" class="view-audit-btn">View audit</button></td>
+    `;
+    body.appendChild(row);
+
+    if (event.status === 'ESCALATED') {
+      const li = document.createElement('li');
+      li.textContent = `${formatRupees(event.amountPaise)} - ${event.failureReason}`;
+      escalationList.appendChild(li);
+    }
+  }
+
+  document.querySelectorAll('.view-audit-btn').forEach((btn) => {
+    btn.addEventListener('click', () => showAuditTrail(btn.dataset.eventId));
+  });
+}
+
+async function showAuditTrail(eventId) {
+  const res = await fetch(`/api/events/${eventId}/audit`);
+  const { entries } = await res.json();
+  const list = document.getElementById('audit-list');
+  list.innerHTML = '';
+  for (const entry of entries) {
+    const li = document.createElement('li');
+    li.textContent = `[${entry.step}] ${new Date(entry.createdAt).toLocaleString()} - ${JSON.stringify(entry.detail)}`;
+    list.appendChild(li);
+  }
+  document.getElementById('audit-drawer').showModal();
+}
+
+document.getElementById('close-drawer-btn').addEventListener('click', () => {
+  document.getElementById('audit-drawer').close();
+});

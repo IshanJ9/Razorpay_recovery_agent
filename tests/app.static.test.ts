@@ -8,4 +8,10 @@ describe('dashboard static files', () => {
     expect(res.status).toBe(200);
     expect(res.text).toContain('Run Agent vs Naive');
   });
+
+  it('includes the audit drawer and events table markup', async () => {
+    const res = await request(app).get('/');
+    expect(res.text).toContain('audit-drawer');
+    expect(res.text).toContain('events-table');
+  });
 });

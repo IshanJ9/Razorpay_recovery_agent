@@ -22,6 +22,32 @@
     <div class="card"><h3>Recovery Rate Delta</h3><p id="delta-value">-</p></div>
   </section>
 
+  <section id="breakdown-section" hidden>
+    <h2>Recovery rate by failure reason</h2>
+    <svg id="breakdown-chart" width="600" height="240"></svg>
+  </section>
+
+  <section id="events-section" hidden>
+    <h2>Events (agent run)</h2>
+    <table id="events-table">
+      <thead>
+        <tr><th>Amount</th><th>Type</th><th>Failure reason</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody id="events-body"></tbody>
+    </table>
+  </section>
+
+  <section id="escalation-section" hidden>
+    <h2>Escalated to human</h2>
+    <ul id="escalation-list"></ul>
+  </section>
+
+  <dialog id="audit-drawer">
+    <h2>Audit trail</h2>
+    <ol id="audit-list"></ol>
+    <button id="close-drawer-btn">Close</button>
+  </dialog>
+
   <script src="dashboard.js"></script>
 </body>
 </html>
