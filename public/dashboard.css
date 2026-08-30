@@ -8,5 +8,5 @@ table { border-collapse: collapse; width: 100%; margin-top: 0.5rem; }
 th, td { border: 1px solid #ddd; padding: 0.4rem 0.6rem; text-align: left; }
 dialog { width: 500px; max-height: 80vh; overflow-y: auto; }
 #audit-list li { margin-bottom: 0.5rem; }
-#breakdown-chart rect { fill: #4a7dfc; }
-#breakdown-chart text { font-size: 10px; }
+.breakdown-chart rect { fill: #4a7dfc; }
+.breakdown-chart text { font-size: 10px; }
