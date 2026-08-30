@@ -40,6 +40,45 @@ describe('runBatch', () => {
     const naiveRecovered = await sumRecoveredPaise(naiveBatch.id);
 
     expect(agentRecovered).toBeGreaterThanOrEqual(naiveRecovered);
+
+    // Margin assertion: a regression that collapses the two strategies to a near-tie
+    // (e.g. accidentally routing both through the same decision table) should fail
+    // loudly rather than sneak by on a >= check.
+    expect(agentRecovered).toBeGreaterThan(naiveRecovered * 1.05);
+
+    // Mechanism assertion: the agent's advantage should be demonstrable specifically on
+    // the failure reasons where its tailored action differs from "always retry"
+    // (CARD_EXPIRED and INVALID_CARD_DETAILS both call for SEND_MESSAGE, not RETRY) --
+    // this proves the "diagnose before acting" thesis mechanistically, not just in
+    // aggregate ₹ recovered.
+    const agentEvents = await prisma.paymentEvent.findMany({ where: { batchId: agentBatch.id } });
+    const naiveEvents = await prisma.paymentEvent.findMany({ where: { batchId: naiveBatch.id } });
+
+    const recoveryRateByReason = (events: typeof agentEvents, reason: string) => {
+      const subset = events.filter((e) => e.failureReason === reason);
+      if (subset.length === 0) return 0;
+      const recoveredCount = subset.filter((e) => e.status === 'RECOVERED').length;
+      return recoveredCount / subset.length;
+    };
+
+    for (const reason of ['CARD_EXPIRED', 'INVALID_CARD_DETAILS']) {
+      const agentRate = recoveryRateByReason(agentEvents, reason);
+      const naiveRate = recoveryRateByReason(naiveEvents, reason);
+      expect(agentRate).toBeGreaterThan(naiveRate);
+    }
+
+    // Some events should reach ESCALATED (e.g. RISK_DECLINED events, or anything that
+    // exhausts its attempts), and no event should exceed the 3-attempt compliance cap.
+    const escalatedCount = agentEvents.filter((e) => e.status === 'ESCALATED').length;
+    expect(escalatedCount).toBeGreaterThan(0);
+
+    const agentEventsWithAttempts = await prisma.paymentEvent.findMany({
+      where: { batchId: agentBatch.id },
+      include: { attempts: true },
+    });
+    for (const event of agentEventsWithAttempts) {
+      expect(event.attempts.length).toBeLessThanOrEqual(3);
+    }
   });
 
   it('records a full DETECTED -> DIAGNOSED -> ... audit trail for every event', async () => {
