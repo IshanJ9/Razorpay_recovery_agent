@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { createBatch } from '../../pipeline/createBatch';
 import { runBatch } from '../../pipeline/batchRunner';
 import { prisma } from '../../db/client';
+import { computeReport } from '../report';
 
 export const batchesRouter = Router();
 
@@ -30,4 +31,9 @@ batchesRouter.get('/:id', async (req, res) => {
   const batch = await prisma.batch.findUnique({ where: { id: req.params.id } });
   if (!batch) return res.status(404).json({ error: 'not found' });
   res.json({ batch });
+});
+
+batchesRouter.get('/:id/report', async (req, res) => {
+  const report = await computeReport(req.params.id);
+  res.json(report);
 });
