@@ -15,10 +15,19 @@ it against a naive "retry everything the same way" baseline on a synthetic batch
 To use a real LLM for message drafting/explanations (optional -- the app works
 end-to-end without this via a template fallback), set `LLM_API_KEY` in `.env`.
 The client is OpenAI-chat-completions-compatible, so an xAI Grok key works with
-the default `LLM_BASE_URL`/`LLM_MODEL` in `.env.example`.
+the default `LLM_BASE_URL`/`LLM_MODEL` in `.env.example`. A 300-event run with a
+real `LLM_API_KEY` configured makes many sequential API calls and takes
+significantly longer than template-fallback mode -- use a smaller count (e.g.
+20-50) when demoing with a real LLM key.
 
 ## Tests
 `npm test` -- requires the Postgres container from step 2 to be running.
+
+## Known audit findings
+`npm audit` reports vulnerabilities entirely within the `prisma` CLI's
+devDependency chain (via `@prisma/config` -> `deepmerge-ts`), which is not part
+of the deployed app's runtime dependencies and therefore does not affect the
+running service.
 
 ## Demo (CLI, no browser needed)
 `npm run demo -- 300 42` -- generates a 300-event synthetic batch (seed 42),
