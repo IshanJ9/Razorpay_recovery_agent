@@ -21,4 +21,13 @@ describe('simulateOutcome', () => {
     }
     expect(successes).toBeLessThan(300);
   });
+
+  it('never succeeds on a mismatched action when groundTruthRecoverable is 0 (e.g. RISK_DECLINED)', () => {
+    const rng = mulberry32(91011);
+    let successes = 0;
+    for (let i = 0; i < 500; i++) {
+      if (simulateOutcome(0, false, rng) === 'SUCCESS') successes++;
+    }
+    expect(successes).toBe(0);
+  });
 });

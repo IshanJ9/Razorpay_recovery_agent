@@ -5,6 +5,8 @@ export function simulateOutcome(
   actionMatchesIdeal: boolean,
   rng: () => number
 ): 'SUCCESS' | 'FAILURE' {
-  const successProbability = actionMatchesIdeal ? groundTruthRecoverable : MISMATCHED_ACTION_FLOOR;
+  const successProbability = actionMatchesIdeal
+    ? groundTruthRecoverable
+    : Math.min(MISMATCHED_ACTION_FLOOR, groundTruthRecoverable);
   return rng() < successProbability ? 'SUCCESS' : 'FAILURE';
 }
